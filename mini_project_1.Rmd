@@ -1,0 +1,151 @@
+---
+title: "An Analytical Visual Glimpse Into The Dialogues of Stranger Things' First Four Seasons"
+author: "Diepanh Do"
+date: "03-01-2025"
+output: html_document
+---
+
+## 1. Introduction
+
+"Stranger Things" is an original Netflix blockbuster released in 2016. Up to now, 2025, the series has released four seasons and forty-two episodes, awaiting the fifth and final one this year. Among Netflix Most-Watched Series, this TV production is rated 8.7/10 on IMBd by over 1.4 million accounts.\
+Apart from the wonderful cinematography, visual effect, story, cast, and so many more to name, a huge contribution to this success is screenplay. A lot insights of a television production can be gained with examining the dialogues, and in this article, I plan to understand some of them through data analytics.
+
+The dataset used in this project is gathered and cleaned by TidyTuesday. More information about this dataset can be found in the reference section of this article.
+
+
+## 2. Data Cleaning and Transforming
+
+```{r, warning = FALSE}
+# Load the necessary packages
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(hms)
+library(ggthemes)
+library(stringr)
+```
+
+```{r, warning = FALSE}
+# Load the dataset into R
+dialogue <- read_csv("stranger_things_all_dialogue.csv")
+
+# Take a glimspe at the dataset
+glimpse(dialogue)
+```
+From the glimpse, we identify that dataset contains 8 variables and 32,519 observations. All variables are categorical except "start_time" and "end_time", which are numerical. We also see that the data has already been cleaned, as stated by TidyTuesday. However, since the values under column "season", "episode" are all predicted, I would like to convert them into factor. In addition, to be stricter with discrete values of I would also like to convert "line" from <dbl> into <int>.\
+
+```{r, warning = FALSE}
+dialogue <- dialogue |>
+  mutate(season = factor(season),
+         episode = factor(episode),
+         line = as.integer(line))
+
+# Glimpse the new dataset
+glimpse(dialogue)
+```
+
+## 3. Data Visualization and Analysis
+
+Talking about Stranger Things, apart from the wonderful cinematography, visual effect, story, cast, and so many more to say, a huge contribution worth digging into is screenplay, which is the script of a movie, including acting instructions and scene directions. Given the nature of the show, I wonder how those actions are distributed through out each episode and each season. I wonder if there tends to exist a pattern where more acting is required at the beginning and it becomes more relaxing going to the end of each episode. Or will it fluctuates throughout each episode, drawing the audiences in and leaving them with curiosity.\
+
+Each observation of this dataset represents each text line in the movie. I would like to consider each line an action. Although multiple action verbs are sometimes included on the same line, or a single dialogue are sometimes extended to multiple lines, these divisions are based on the time consideration. Since my purpose is to taking a look at "how much" is happening per time, I found out it was justifiable and convenient to regard an action as this way.\
+
+We also plan for our visualization and analysis to be grouped by season. The "Stranger Things" community will also realize that this show has a very diverse pools of opinions on the rankings of each season. Thus, we look forward to the possibility of identifying any different patterns between each.\
+
+To plot each observation against the time, I choose "starting_time" to indicate the time stamp of an action. We will first need to check if there are missing values in "starting_time".\
+
+```{r, warning = FALSE}
+# Check missing values in start_time and end_time
+sum(is.na(dialogue$start_time) == TRUE)
+
+```
+Since the result indicates no missing values are found, we will start using this variable.\
+
+Approximately, the average episode length in minute of each seasons are 50, 52, 56, 86, respectively. Therefore, we will create a new variable called "time_group" based on each observation's "starting_time", dividing the time stamps into each groups. This choice of number of levels allows us to observe the possible trend at the end of each episode in the fourth season, whose average duration per episode is much higher, instead of just seeing a noticeably large group of data.\
+
+We all need to convert the time format to hms for numerical comparison.
+
+```{r, warning = FALSE}
+dialogue_time_group <- dialogue |>
+  mutate(start_time = as_hms(start_time),
+         time_group = case_when(
+           start_time >= as_hms("00:00:00") & 
+             start_time <= as_hms("00:09:59") ~ "0-10",
+           start_time >= as_hms("00:10:00") & 
+             start_time <= as_hms("00:19:59") ~ "10-20",
+           start_time >= as_hms("00:20:00") & 
+             start_time <= as_hms("00:29:59") ~ "20-30",
+           start_time >= as_hms("00:30:00") & 
+             start_time <= as_hms("00:39:59") ~ "30-40",
+           start_time >= as_hms("00:40:00") & 
+             start_time <= as_hms("00:49:59") ~ "40-50",
+           start_time >= as_hms("00:50:00") & 
+             start_time <= as_hms("00:59:59") ~ "50-60",
+           start_time >= as_hms("01:00:00") & 
+             start_time <= as_hms("01:09:59") ~ "60-70",
+           start_time >= as_hms("01:10:00") & 
+             start_time <= as_hms("01:19:59") ~ "70-80",
+           as_hms(start_time) >= as_hms("01:20:00") ~ "80-"))
+```
+
+Before plotting, we would want to take a glimpse at this new dataset. Running the code below, we can see that although "time_group" better be a factor rather than a character as R identified, this issue does not affect the visualization that is the only case we will use this dataset.\
+
+```{r, warning = FALSE}
+glimpse(dialogue_time_group)
+```
+We can now go into visualization. Since the variables "time_group" and "season" are both categorical, and our main interest is the count of observation, we will be using a stacked bar chart. We can expect the graph to be considerably wide, so using stacks allows us to narrow down the scope of the our eyesight, while still being able to identify the pattern within a season and in comparison with other seasons. With that in mind, we want to put "time_group" to the x- axis and "season" as the filled color of the bar. Accordingly, the y- axis will appear to be the number of observations that fall under the eight time groups, divided by season, and as reasoned above, each observation will be represent an action in the scope of the article. In addition, we will also use the colorblind palette to improve inclusive convenience. For scaling. we will choose to stay with the scale given by ggplot, since we have already subtly balance out the scale when creating the "time_group" variable, and by knowing this show, no outlier is expected among this data.\
+
+```{r, warning = FALSE}
+dialogue_time_group |>
+  ggplot(aes(x = time_group,
+             fill = season)) +
+  geom_bar(position = "stack") +
+  labs(title = "Number of Action Per 10 Minutes Grouped By Each Stranger Things Season",
+       x = "Time Group",
+       y = "Number of Action",
+       fill = "Season") +
+  scale_fill_colorblind()
+```
+\
+
+We could see that all four seasons appear to have a right-skewed graph. They likely all follow a same pattern that most actions tend to happen from the 10th to the 50th minute of an episode. Although we do not divide further the timestamps from 01:20:00 of the fourth season, we can still witness that there tend to be a big "jump" at the ending period of an episode in each season, where the endings tend to have considerably less things happening, more than at the beginnings, where I predict that they would act as the kickstart before more things could happen.\
+
+Noticeably, season 3 and 4 seem to have more things happening in comparison to the first two. As a Stranger Things avid audience, after confirming my skepticism by viewing the dataset again, I wonder if this has anything to do with the musical episodes.\
+
+As a result, I plan to visualize the count of data indicating musical episodes for each season. This would be a much simpler process. The "dialogue" dataset denoted the musical lines with a symbol "♪", so we will take the original dataset and filter out those lines for our purpose. Then, we calculate right away the number of musical lines appeared in each season, and divide them by the approximate runtime each season which are 402, 466, 444, and 771 minutes respectively, since seasons vary in length. Since after filter and calculation, the dataset become much smaller, it will not be necessary to save it as a new dataset.\
+
+We filter the dataset to include only the observations that has the string "♪" within the "dialogue" column. We, then, will plot the season on the x- axis, since the count of each time we observe each season equals to the count of musical line appeared in that season.\
+
+A bar plot is also chosen for this visualization, since we are acting on a categorical variable - season, and we are interested in numerical comparison between the counts. We, again, will settle with the scale that ggplot gives us. Since our main goal is to observe the overall difference between musical line count of each season.\
+
+```{r, warning = FALSE}
+dialogue |>
+  filter(str_detect(dialogue, "♪")) |>
+  group_by(season) |>
+  summarize(mus_line = n()) |>
+  mutate(mus_line_per_min = case_when(
+    season == "1" ~ mus_line / 402,
+    season == "2" ~ mus_line / 466,
+    season == "3" ~ mus_line / 444,
+    season == "4" ~ mus_line / 771
+  )) |>
+  ggplot(aes(x = season,
+             y = mus_line_per_min)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Musical Lines Per Minute in Each Stranger Things Season",
+       x = "Season",
+       y = "Number of Musical Line Per Minute")
+```
+\
+Although season 3 and 4 do have more musical lines, the difference between season 2 and 4 are not that significant compare to the difference in the visualization about number of actions. Therefore, there exist a weaker correlation between the number of actions of an episode and the number of musical lines per minute each season has. In season 1, less than one musical line appears every 10 minutes. However, interestingly enough, we discover that in season 3, more than one musical line appears every 30 seconds!\
+
+## 4. Discussion
+
+The first graph of this article showcased an interesting trend in the production of Stranger Things. We recognize that across all seasons, the flow of an episode tends to be more relaxing coming to the end. Nonetheless, a lot of other horror shows introduced jump scares or a series of increasing intensity at the closing part of each episode to stimulate curiosity. Since Stranger Things, while containing horror elements, draws the majority of audiences in by its dark fantasy factors, perhaps shown in it slower and more mysterious (?) scenes at the end of each episode. We also witness a significant difference in distribution of musical parts across the first four seasons. Although further investigation is needed before coming to the conclusion, this could be one of the reasons why the show has received so many diverse opinions on the ranking of seasons.\
+
+The scope of this article brings about some limitations. Not enough variables are given to truly conclude if the distribution of discrete actions across four seasons looks like the first graph of this study. We would need to further investigate and sort out how many verbs, indicating actions, appear in the stage direction and dialogue of each season. Even better is the real data of what happens on screen!\ 
+
+## 5. Reference
+
+TidyTuesday. (2022). Stranger Things All Dialogue [Data set]. Github. https://github.com/rfordatascience/tidytuesday/blob/main/data/2022/2022-10-18/stranger_things_all_dialogue.csv
+
